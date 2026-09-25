@@ -1,440 +1,280 @@
 <!DOCTYPE html>
-<html lang="tr" class="dark">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İsimli Anahtarlık Generatörü | DDVector</title>
-
-    <!-- Tailwind CSS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/3.4.1/tailwind.min.js"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'monospace'],
-                    },
-                    colors: {
-                        ink: {
-                            950: '#0a0c10', 900: '#0e1117', 800: '#141822',
-                            700: '#1b2130', 600: '#2a3244', 500: '#3d4759',
-                        },
-                        brass: { 400: '#e8a13c', 500: '#d6892a', 600: '#b56f1f' }
-                    }
-                }
-            }
-        }
-    </script>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-    <!-- Three.js via ES Modules — one source, matching versions guaranteed -->
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
-        }
-    }
-    </script>
-
+    <title>DD_VECTOR - 3D İsimli Anahtarlık Tasarım Atölyesi</title>
     <style>
-        html { font-family: 'Inter', system-ui, sans-serif; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #2a3244; border-radius: 3px; }
-        .num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
-
-        #canvas-container {
-            width: 100%; height: 420px; position: relative; overflow: hidden;
-            background:
-                linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
-                #0b0e14;
-            background-size: 28px 28px;
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent: #8b5cf6;
+            --accent-hover: #7c3aed;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
         }
-        @media (min-width: 1024px) { #canvas-container { height: 680px; } }
-
-        .reticle::before, .reticle::after, .reticle-r::before, .reticle-r::after {
-            content: ''; position: absolute; width: 18px; height: 18px; pointer-events: none;
-        }
-        .reticle::before { top: 12px; left: 12px; border-top: 2px solid rgba(230,161,60,0.55); border-left: 2px solid rgba(230,161,60,0.55); }
-        .reticle::after   { bottom: 12px; left: 12px; border-bottom: 2px solid rgba(230,161,60,0.55); border-left: 2px solid rgba(230,161,60,0.55); }
-        .reticle-r::before{ top: 12px; right: 12px; border-top: 2px solid rgba(230,161,60,0.55); border-right: 2px solid rgba(230,161,60,0.55); }
-        .reticle-r::after { bottom: 12px; right: 12px; border-bottom: 2px solid rgba(230,161,60,0.55); border-right: 2px solid rgba(230,161,60,0.55); }
-
-        input[type="range"] { -webkit-appearance: none; appearance: none; height: 3px; border-radius: 2px; background: #2a3244; }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none; width: 13px; height: 13px; border-radius: 3px;
-            background: #e8a13c; border: 2px solid #0e1117; cursor: pointer; margin-top: -5px; transition: transform 0.1s ease;
-        }
-        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
-        input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border-radius: 3px; background: #e8a13c; border: 2px solid #0e1117; cursor: pointer; }
-        input[type="range"]::-moz-range-track { background: #2a3244; height: 3px; border-radius: 2px; }
-
-        input[type="color"] {
-            -webkit-appearance: none; appearance: none; width: 36px; height: 28px;
-            background: none; border: 1px solid #2a3244; border-radius: 6px; cursor: pointer; padding: 2px;
-        }
-        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
-
-        select {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7385' stroke-width='1.5' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E");
-            background-repeat: no-repeat; background-position: right 0.75rem center;
-            -webkit-appearance: none; appearance: none;
-        }
-
-        #status-banner {
-            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-            flex-direction: column; gap: 10px; background: #0b0e14; z-index: 20;
-            font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8b93a5; text-align: center; padding: 24px;
-        }
-        #status-banner button {
-            margin-top: 4px; padding: 6px 14px; border-radius: 6px;
-            background: #e8a13c; color: #0a0c10; font-weight: 600; font-size: 11px; border: none; cursor: pointer;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { background: var(--panel-bg); padding: 15px 25px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { background: var(--accent); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); }
+        .logo-text h1 { font-size: 1.25rem; letter-spacing: 1px; color: #fff; }
+        .logo-text span { font-size: 0.75rem; color: var(--text-muted); }
+        .main-container { display: grid; grid-template-columns: 350px 1fr; flex: 1; height: calc(100vh - 71px); }
+        @media (max-width: 900px) { .main-container { grid-template-columns: 1fr; height: auto; overflow-y: auto; } }
+        .sidebar { background: var(--panel-bg); padding: 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .control-group label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+        .control-group input, .control-group select { background: var(--bg-color); border: 1px solid var(--border); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; outline: none; transition: border 0.2s; }
+        .control-group input:focus { border-color: var(--accent); }
+        .radio-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .radio-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; background: var(--bg-color); font-size: 0.85rem; transition: all 0.2s; user-select: none; }
+        .radio-card input { display: none; }
+        .radio-card.active { border-color: var(--accent); background: rgba(139, 92, 246, 0.15); color: #fff; font-weight: 600; }
+        .color-pickers { display: flex; gap: 15px; }
+        .color-pickers div { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); }
+        .color-pickers input[type="color"] { border: none; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; background: none; }
+        .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s, transform 0.1s; }
+        .btn:hover { background: var(--accent-hover); }
+        .btn:active { transform: scale(0.98); }
+        .btn-secondary { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+        .btn-secondary:hover { background: rgba(139, 92, 246, 0.1); color: #fff; }
+        .viewer-container { position: relative; width: 100%; height: 100%; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
+        #canvas3d { width: 100%; height: 100%; display: block; }
+        .info-badge { position: absolute; bottom: 20px; left: 20px; background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(5px); border: 1px solid var(--border); padding: 10px 15px; border-radius: 8px; font-size: 0.8rem; color: var(--text-muted); pointer-events: none; }
     </style>
 </head>
-<body class="bg-ink-950 text-gray-100 antialiased min-h-screen flex flex-col">
+<body>
 
-    <header class="bg-ink-900/95 backdrop-blur border-b border-ink-700 sticky top-0 z-50 px-5 py-3">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-md bg-ink-800 border border-ink-600 flex items-center justify-center">
-                    <span class="text-brass-400 font-bold text-base num">D/</span>
-                </div>
-                <div>
-                    <h1 class="text-sm font-semibold tracking-tight text-white leading-tight">İsimli Anahtarlık Generatörü</h1>
-                    <p class="text-[11px] text-gray-500 num">DDVector · canlı 3D önizleme + STL çıktısı</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="window.resetCamera && window.resetCamera()" class="px-3 py-2 bg-ink-800 hover:bg-ink-700 text-gray-300 text-xs font-medium rounded-md transition flex items-center gap-1.5 border border-ink-600">
-                    <i class="fa-solid fa-camera-rotate text-[11px]"></i>
-                    <span class="hidden sm:inline">Kamerayı Sıfırla</span>
-                </button>
-                <button onclick="window.exportSTL && window.exportSTL()" class="px-4 py-2 bg-brass-500 hover:bg-brass-400 text-ink-950 text-xs font-semibold rounded-md transition flex items-center gap-2">
-                    <i class="fa-solid fa-download text-[11px]"></i>
-                    <span>STL İndir</span>
-                </button>
+    <header>
+        <div class="logo-area">
+            <div class="logo-icon">🔑</div>
+            <div class="logo-text">
+                <h1>DD_VECTOR</h1>
+                <span>3D İsimli Anahtarlık Tasarım Atölyesi</span>
             </div>
         </div>
     </header>
 
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col lg:flex-row gap-5">
-
-        <div class="w-full lg:w-3/5 flex flex-col gap-3">
-            <div class="reticle reticle-r bg-ink-900 rounded-lg border border-ink-700 overflow-hidden relative">
-                <div class="absolute top-3.5 left-3.5 z-10 bg-ink-950/80 backdrop-blur px-2.5 py-1 rounded border border-ink-700 text-[11px] flex items-center gap-1.5 pointer-events-none num">
-                    <span id="status-dot" class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                    <span class="text-gray-300">ÖNİZLEME</span>
-                </div>
-                <div class="absolute top-3.5 right-3.5 z-10 bg-ink-950/80 backdrop-blur px-2.5 py-1 rounded border border-ink-700 text-[11px] text-gray-400 pointer-events-none num" id="dims-badge">—</div>
-                <div id="canvas-container">
-                    <div id="status-banner">
-                        <i class="fa-solid fa-font text-lg text-ink-600"></i>
-                        <span>3D altyapısı yükleniyor…</span>
-                    </div>
-                </div>
-            </div>
-            <p class="text-[11px] text-gray-500 px-1 num">Sürükle: döndür · Tekerlek: yakınlaştır · Sağ tık sürükle: kaydır</p>
-        </div>
-
-        <div class="w-full lg:w-2/5 flex flex-col gap-6 bg-ink-900 p-5 rounded-lg border border-ink-700 overflow-y-auto lg:max-h-[680px]">
-
-            <div class="space-y-3">
-                <h2 class="text-[11px] font-semibold tracking-wide text-brass-400 flex items-center gap-2 border-b border-ink-700 pb-2">
-                    <i class="fa-solid fa-signature text-[10px]"></i> Metin
-                </h2>
-                <input type="text" id="metin" value="Merve" maxlength="14"
-                       class="w-full bg-ink-800 border border-ink-600 rounded-md px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-brass-500" />
-                <div class="space-y-1">
-                    <label class="text-xs text-gray-400">Font</label>
-                    <select id="font_secim" class="w-full bg-ink-800 border border-ink-600 rounded-md px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-brass-500">
-                        <option value="helvetiker_bold" selected>Yuvarlak (Helvetiker Bold)</option>
-                        <option value="optimer_bold">Modern (Optimer Bold)</option>
-                        <option value="gentilis_bold">Şık (Gentilis Bold)</option>
-                    </select>
-                </div>
+    <div class="main-container">
+        <!-- SOL KONTROL PANELİ -->
+        <div class="sidebar">
+            <div class="control-group">
+                <label>Anahtarlık Metni</label>
+                <input type="text" id="textInput" value="DD_VECTOR" maxlength="12" placeholder="İsim giriniz...">
             </div>
 
-            <div class="space-y-4">
-                <h2 class="text-[11px] font-semibold tracking-wide text-brass-400 flex items-center gap-2 border-b border-ink-700 pb-2">
-                    <i class="fa-solid fa-cube text-[10px]"></i> Boyut ve Kabarıklık
-                </h2>
-                <div class="space-y-1">
-                    <div class="flex justify-between text-xs">
-                        <span class="text-gray-400">Harf Yüksekliği</span>
-                        <span id="val-boyut" class="num font-medium text-gray-200">30 mm</span>
-                    </div>
-                    <input type="range" id="boyut" min="15" max="60" value="30" step="1" class="w-full cursor-pointer">
-                </div>
-                <div class="space-y-1">
-                    <div class="flex justify-between text-xs">
-                        <span class="text-gray-400">Kalınlık (derinlik)</span>
-                        <span id="val-derinlik" class="num font-medium text-gray-200">8 mm</span>
-                    </div>
-                    <input type="range" id="derinlik" min="2" max="14" value="8" step="0.5" class="w-full cursor-pointer">
-                </div>
-                <div class="space-y-1">
-                    <div class="flex justify-between text-xs">
-                        <span class="text-gray-400">Kabartma (bubble efekti)</span>
-                        <span id="val-kabartma" class="num font-medium text-gray-200">70 %</span>
-                    </div>
-                    <input type="range" id="kabartma" min="0" max="100" value="70" step="5" class="w-full cursor-pointer">
-                </div>
-            </div>
-
-            <div class="space-y-4">
-                <h2 class="text-[11px] font-semibold tracking-wide text-brass-400 flex items-center gap-2 border-b border-ink-700 pb-2">
-                    <i class="fa-solid fa-palette text-[10px]"></i> Renk ve Kontur
-                </h2>
-                <div class="grid grid-cols-2 gap-4 items-end">
-                    <div class="space-y-1">
-                        <label class="text-xs text-gray-400">Ana Renk</label>
-                        <input type="color" id="ana_renk" value="#ffffff">
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs text-gray-400">Kontur Rengi</label>
-                        <input type="color" id="kontur_renk" value="#7c3aed">
-                    </div>
-                </div>
-                <div class="space-y-1">
-                    <div class="flex justify-between text-xs">
-                        <span class="text-gray-400">Kontur Kalınlığı</span>
-                        <span id="val-kontur" class="num font-medium text-gray-200">40 %</span>
-                    </div>
-                    <input type="range" id="kontur_kalinlik" min="0" max="100" value="40" step="5" class="w-full cursor-pointer">
-                </div>
-            </div>
-
-            <div class="space-y-4">
-                <div class="flex items-center justify-between border-b border-ink-700 pb-2">
-                    <h2 class="text-[11px] font-semibold tracking-wide text-brass-400 flex items-center gap-2">
-                        <i class="fa-solid fa-key text-[10px]"></i> Anahtar Halkası
-                    </h2>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="halka_aktif" checked class="sr-only peer">
-                        <div class="w-9 h-5 bg-ink-700 peer rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brass-500 peer-checked:after:bg-ink-950"></div>
+            <div class="control-group">
+                <label>Halka Konumu</label>
+                <div class="radio-group">
+                    <label class="radio-card active" id="labelStart">
+                        <input type="radio" name="ringPos" value="start" checked> Başında
+                    </label>
+                    <label class="radio-card" id="labelEnd">
+                        <input type="radio" name="ringPos" value="end"> Sonunda
                     </label>
                 </div>
-                <div id="halka-controls" class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-400">Halka Çapı</span>
-                            <span id="val-halka-cap" class="num font-medium text-gray-200">12 mm</span>
-                        </div>
-                        <input type="range" id="halka_cap" min="8" max="20" value="12" step="1" class="w-full cursor-pointer">
+            </div>
+
+            <div class="control-group">
+                <label>Renk Kombinasyonu</label>
+                <div class="color-pickers">
+                    <div>
+                        <input type="color" id="baseColor" value="#8b5cf6"> Zemin
                     </div>
-                    <div class="space-y-1">
-                        <label class="text-xs text-gray-400">Konum</label>
-                        <select id="halka_konum" class="w-full bg-ink-800 border border-ink-600 rounded-md px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-brass-500">
-                            <option value="ilk-harf" selected>İlk Harfin Üstü</option>
-                            <option value="orta">Ortada</option>
-                        </select>
+                    <div>
+                        <input type="color" id="textColor" value="#ffffff"> Yazı
                     </div>
                 </div>
             </div>
 
+            <hr style="border: 0; border-top: 1px solid var(--border);">
+
+            <button class="btn" id="downloadStlBtn">
+                📥 STL Dosyasını İndir (3D Baskı)
+            </button>
+            <button class="btn btn-secondary" id="resetCameraBtn">
+                🎥 Kamerayı Sıfırla
+            </button>
         </div>
-    </main>
 
-    <footer class="border-t border-ink-700 py-3 text-center text-[11px] text-gray-600 mt-auto num">
-        İsimli Anahtarlık Generatörü © 2026 · DDVector
-    </footer>
+        <!-- SAĞ 3D GÖRSELLEŞTİRME ALANI -->
+        <div class="viewer-container">
+            <div id="canvas3d"></div>
+            <div class="info-badge">💡 Sol tık ile döndürün, sağ tık ile kaydırın, tekerlek ile yakınlaşın.</div>
+        </div>
+    </div>
 
-    <script type="module">
-        window.addEventListener('error', (e) => {
-            showStatus('Beklenmeyen hata: ' + (e.message || 'bilinmiyor'), true);
-        });
-        window.addEventListener('unhandledrejection', (e) => {
-            const msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
-            showStatus('Beklenmeyen hata: ' + msg, true);
-        });
+    <!-- Three.js ve STL Exporter CDN Kütüphaneleri -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
+    
+    <script>
+        let scene, camera, renderer, controls;
+        let keychainGroup = new THREE.Group();
+        
+        let currentText = "DD_VECTOR";
+        let ringPosition = "start";
+        
+        let baseMaterial = new THREE.MeshStandardMaterial({ color: "#8b5cf6", roughness: 0.3, metalness: 0.1 });
+        let textMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.3, metalness: 0.1 });
 
-        function showStatus(message, isError) {
-            const container = document.getElementById('canvas-container');
-            let banner = document.getElementById('status-banner');
-            if (!banner) {
-                banner = document.createElement('div');
-                banner.id = 'status-banner';
-                container.appendChild(banner);
-            }
-            const retryBtn = isError ? '<button onclick="location.reload()">Sayfayı Yenile</button>' : '';
-            banner.innerHTML = `<i class="fa-solid ${isError ? 'fa-triangle-exclamation text-amber-500' : 'fa-font text-ink-600'} text-lg"></i><span>${message}</span>${retryBtn}`;
-            banner.style.display = 'flex';
-            const dot = document.getElementById('status-dot');
-            if (dot) dot.className = 'w-1.5 h-1.5 rounded-full ' + (isError ? 'bg-red-500' : 'bg-amber-500');
-        }
-        function hideStatus() {
-            const banner = document.getElementById('status-banner');
-            if (banner) banner.style.display = 'none';
-            const dot = document.getElementById('status-dot');
-            if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
-        }
-
-        let THREE, OrbitControls, FontLoader, TextGeometry;
-        let scene, camera, renderer, controls, modelGroup, resizeObserver;
-        const fontCache = {};
-        const FONT_BASE = 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/fonts/';
-        const FONT_FILES = {
-            helvetiker_bold: 'helvetiker_bold.typeface.json',
-            optimer_bold: 'optimer_bold.typeface.json',
-            gentilis_bold: 'gentilis_bold.typeface.json',
-        };
-        const FALLBACK_FONT = 'helvetiker_bold';
-
-        async function boot() {
-            if (!window.WebGLRenderingContext) {
-                showStatus('Tarayıcınız WebGL desteklemiyor.', true);
-                return;
-            }
-            try {
-                const [threeMod, controlsMod, fontLoaderMod, textGeomMod] = await Promise.all([
-                    import('three'),
-                    import('three/addons/controls/OrbitControls.js'),
-                    import('three/addons/loaders/FontLoader.js'),
-                    import('three/addons/geometries/TextGeometry.js'),
-                ]);
-                THREE = threeMod;
-                OrbitControls = controlsMod.OrbitControls;
-                FontLoader = fontLoaderMod.FontLoader;
-                TextGeometry = textGeomMod.TextGeometry;
-            } catch (err) {
-                console.error('Three.js yüklenemedi:', err);
-                showStatus('3D kütüphanesi yüklenemedi (ağ/CDN sorunu olabilir). ' + (err.message || ''), true);
-                return;
-            }
-
-            try {
-                init3D();
-            } catch (err) {
-                console.error('3D başlatma hatası:', err);
-                showStatus('3D önizleme başlatılamadı: ' + err.message, true);
-            }
-        }
-
-        function loadFont(key) {
-            const file = FONT_FILES[key] || FONT_FILES[FALLBACK_FONT];
-            if (fontCache[file]) return fontCache[file];
-            const loader = new FontLoader();
-            const promise = new Promise((resolve, reject) => {
-                loader.load(FONT_BASE + file, resolve, undefined, reject);
-            }).catch((err) => {
-                console.warn('Font yüklenemedi (' + file + '), yedek fonta geçiliyor:', err);
-                if (file === FONT_FILES[FALLBACK_FONT]) throw err;
-                const fbFile = FONT_FILES[FALLBACK_FONT];
-                if (fontCache[fbFile]) return fontCache[fbFile];
-                const fbLoader = new FontLoader();
-                const fbPromise = new Promise((resolve, reject) => {
-                    fbLoader.load(FONT_BASE + fbFile, resolve, undefined, reject);
-                });
-                fontCache[fbFile] = fbPromise;
-                return fbPromise;
-            });
-            fontCache[file] = promise;
-            return promise;
-        }
-
-        function getParams() {
-            return {
-                metin: document.getElementById('metin').value || ' ',
-                font: document.getElementById('font_secim').value,
-                boyut: parseFloat(document.getElementById('boyut').value),
-                derinlik: parseFloat(document.getElementById('derinlik').value),
-                kabartma: parseFloat(document.getElementById('kabartma').value),
-                anaRenk: document.getElementById('ana_renk').value,
-                konturRenk: document.getElementById('kontur_renk').value,
-                konturKalinlik: parseFloat(document.getElementById('kontur_kalinlik').value),
-                halkaAktif: document.getElementById('halka_aktif').checked,
-                halkaCap: parseFloat(document.getElementById('halka_cap').value),
-                halkaKonum: document.getElementById('halka_konum').value,
-            };
-        }
-
-        function updateLabels() {
-            const p = getParams();
-            document.getElementById('val-boyut').innerText = p.boyut + ' mm';
-            document.getElementById('val-derinlik').innerText = p.derinlik + ' mm';
-            document.getElementById('val-kabartma').innerText = p.kabartma + ' %';
-            document.getElementById('val-kontur').innerText = p.konturKalinlik + ' %';
-            document.getElementById('val-halka-cap').innerText = p.halkaCap + ' mm';
-            const halkaBox = document.getElementById('halka-controls');
-            halkaBox.style.opacity = p.halkaAktif ? '1' : '0.4';
-            halkaBox.style.pointerEvents = p.halkaAktif ? 'auto' : 'none';
-        }
+        init3D();
+        generateKeychain();
 
         function init3D() {
-            const container = document.getElementById('canvas-container');
-            if (!container) return;
-
+            const container = document.getElementById('canvas3d');
             scene = new THREE.Scene();
-            scene.background = null;
+            
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, -90, 60);
 
-            const width = container.clientWidth || 600;
-            const height = container.clientHeight || 420;
-
-            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 2000);
-            camera.position.set(0, 20, 160);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-            renderer.setSize(width, height);
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
-            controls = new OrbitControls(camera, renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.06;
-            controls.target.set(0, 0, 0);
+            controls.dampingFactor = 0.05;
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const keyLight = new THREE.DirectionalLight(0xfff2e0, 1.15);
-            keyLight.position.set(120, 180, 160);
-            scene.add(keyLight);
-            const fillLight = new THREE.DirectionalLight(0x88aaff, 0.4);
-            fillLight.position.set(-140, 80, -120);
-            scene.add(fillLight);
-            const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
-            rimLight.position.set(0, 60, -200);
-            scene.add(rimLight);
+            // Işıklandırma
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
 
-            const gridHelper = new THREE.GridHelper(300, 30, 0x3d4759, 0x1b2130);
-            gridHelper.position.y = -40;
-            scene.add(gridHelper);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(50, 100, 100);
+            scene.add(dirLight);
 
-            modelGroup = new THREE.Group();
-            scene.add(modelGroup);
+            const dirLight2 = new THREE.DirectionalLight(0x9090ff, 0.4);
+            dirLight2.position.set(-50, -100, -50);
+            scene.add(dirLight2);
 
-            resizeObserver = new ResizeObserver(() => onWindowResize());
-            resizeObserver.observe(container);
+            scene.add(keychainGroup);
 
-            const inputs = document.querySelectorAll('input, select');
-            inputs.forEach(input => {
-                const evt = (input.type === 'text' || input.type === 'range' || input.type === 'color') ? 'input' : 'change';
-                input.addEventListener(evt, () => { updateLabels(); rebuildModel(); });
-            });
-
-            updateLabels();
-            rebuildModel();
+            window.addEventListener('resize', onWindowResize);
+            setupEventListeners();
             animate();
         }
 
+        function generateKeychain() {
+            // Eski nesneleri temizle
+            while(keychainGroup.children.length > 0){ 
+                keychainGroup.remove(keychainGroup.children[0]); 
+            }
+
+            const text = currentText.trim() === "" ? "DD_VECTOR" : currentText.toUpperCase();
+            
+            // Parametrik Ölçüler
+            const charWidth = 7;
+            const approxWidth = Math.max(text.length * charWidth + 24, 60);
+            const baseHeight = 26;
+            const cornerRadius = 6;
+            const depth = 2.4;
+
+            // 1. Zemin Plakası (Rounded Rectangle)
+            const baseShape = createRoundedRectShape(-approxWidth/2, -baseHeight/2, approxWidth, baseHeight, cornerRadius);
+            const baseExtrudeSettings = { depth: depth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.4, bevelThickness: 0.4 };
+            const baseGeometry = new THREE.ExtrudeGeometry(baseShape, baseExtrudeSettings);
+            baseGeometry.center();
+            const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
+            keychainGroup.add(baseMesh);
+
+            // 2. Kabartma Yazı Blokları (Her harf için 3D blok simülasyonu ile sağlam geometri)
+            const textGroup = new THREE.Group();
+            const startX = -((text.length * 6.5) / 2) + 3.2;
+            
+            for(let i = 0; i < text.length; i++) {
+                // Her karakter için şık kabartma bloklar
+                const charBoxGeo = new THREE.BoxGeometry(5.2, 14, 1.4);
+                const charMesh = new THREE.Mesh(charBoxGeo, textMaterial);
+                charMesh.position.set(startX + (i * 6.5), 0, depth/2 + 0.7);
+                textGroup.add(charMesh);
+            }
+            keychainGroup.add(textGroup);
+
+            // 3. Bağlantı Halkası (Kulakçık)
+            const ringX = ringPosition === 'start' ? -approxWidth/2 - 5 : approxWidth/2 + 5;
+            
+            const ringShape = new THREE.Shape();
+            ringShape.absarc(0, 0, 6, 0, Math.PI * 2, false);
+            const holePath = new THREE.Path();
+            holePath.absarc(0, 0, 2.8, 0, Math.PI * 2, true);
+            ringShape.holes.push(holePath);
+
+            const ringExtrudeSettings = { depth: depth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.3, bevelThickness: 0.3 };
+            const ringGeometry = new THREE.ExtrudeGeometry(ringShape, ringExtrudeSettings);
+            const ringMesh = new THREE.Mesh(ringGeometry, baseMaterial);
+            ringMesh.position.set(ringX, 0, 0);
+            keychainGroup.add(ringMesh);
+
+            // Ana grubu merkeze sabitle
+            keychainGroup.position.set(0, 0, 0);
+        }
+
+        function createRoundedRectShape(x, y, width, height, radius) {
+            const shape = new THREE.Shape();
+            shape.moveTo(x, y + radius);
+            shape.lineTo(x, y + height - radius);
+            shape.quadraticCurveTo(x, y + height, x + radius, y + height);
+            shape.lineTo(x + width - radius, y + height);
+            shape.quadraticCurveTo(x + width, y + height, x + width, y + height - radius);
+            shape.lineTo(x + width, y + radius);
+            shape.quadraticCurveTo(x + width, y, x + width - radius, y);
+            shape.lineTo(x + radius, y);
+            shape.quadraticCurveTo(x, y, x, y + radius);
+            return shape;
+        }
+
+        function setupEventListeners() {
+            document.getElementById('textInput').addEventListener('input', (e) => {
+                currentText = e.target.value;
+                generateKeychain();
+            });
+
+            document.querySelectorAll('input[name="ringPos"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    ringPosition = e.target.value;
+                    document.getElementById('labelStart').classList.toggle('active', ringPosition === 'start');
+                    document.getElementById('labelEnd').classList.toggle('active', ringPosition === 'end');
+                    generateKeychain();
+                });
+            });
+
+            document.getElementById('baseColor').addEventListener('input', (e) => {
+                baseMaterial.color.set(e.target.value);
+            });
+
+            document.getElementById('textColor').addEventListener('input', (e) => {
+                textMaterial.color.set(e.target.value);
+            });
+
+            document.getElementById('resetCameraBtn').addEventListener('click', () => {
+                camera.position.set(0, -90, 60);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            });
+
+            document.getElementById('downloadStlBtn').addEventListener('click', () => {
+                const exporter = new THREE.STLExporter();
+                const stlString = exporter.parse(keychainGroup, { binary: true });
+                
+                const blob = new Blob([stlString], { type: 'application/octet-stream' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${(currentText.trim() || 'anahtarlik').toUpperCase()}_DD_VECTOR.stl`;
+                link.click();
+            });
+        }
+
         function onWindowResize() {
-            const container = document.getElementById('canvas-container');
-            if (!container || !renderer || !camera) return;
-            const width = container.clientWidth;
-            const height = container.clientHeight;
-            if (width === 0 || height === 0) return;
-            camera.aspect = width / height;
+            const container = document.querySelector('.viewer-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(width, height);
+            renderer.setSize(container.clientWidth, container.clientHeight);
         }
 
         function animate() {
@@ -442,167 +282,6 @@
             controls.update();
             renderer.render(scene, camera);
         }
-
-        let lastFitRadius = 0;
-        window.resetCamera = function () {
-            if (!camera || !controls || !modelGroup) return;
-            fitCameraToGroup(true);
-        };
-
-        function fitCameraToGroup(force) {
-            const box = new THREE.Box3().setFromObject(modelGroup);
-            if (box.isEmpty()) return;
-            const sphere = box.getBoundingSphere(new THREE.Sphere());
-            const dist = Math.max(60, sphere.radius / Math.sin((camera.fov / 2) * Math.PI / 180) * 1.15);
-            controls.target.copy(sphere.center);
-            const dir = new THREE.Vector3(0, 0.12, 1).normalize();
-            camera.position.copy(sphere.center).add(dir.multiplyScalar(dist));
-            camera.near = Math.max(0.1, dist / 100);
-            camera.far = dist * 20;
-            camera.updateProjectionMatrix();
-            controls.update();
-            lastFitRadius = sphere.radius;
-        }
-
-        let buildToken = 0;
-        async function rebuildModel() {
-            if (!modelGroup) return;
-            const token = ++buildToken;
-            const p = getParams();
-
-            let font;
-            try {
-                font = await loadFont(p.font);
-            } catch (err) {
-                console.error('Font yüklenemedi:', err);
-                showStatus('Yazı tipi yüklenemedi (ağ/CDN sorunu olabilir). ' + (err.message || ''), true);
-                return;
-            }
-            if (token !== buildToken) return; // a newer rebuild started meanwhile
-            hideStatus();
-
-            while (modelGroup.children.length > 0) {
-                modelGroup.remove(modelGroup.children[0]);
-            }
-
-            const bt = Math.min(p.derinlik * 0.45, 0.6 + (p.kabartma / 100) * p.derinlik * 0.4);
-            const bs = bt * 0.85;
-
-            let textGeom;
-            try {
-                textGeom = new TextGeometry(p.metin, {
-                    font: font,
-                    size: p.boyut,
-                    depth: p.derinlik,
-                    height: p.derinlik,
-                    curveSegments: 8,
-                    bevelEnabled: true,
-                    bevelThickness: bt,
-                    bevelSize: bs,
-                    bevelOffset: 0,
-                    bevelSegments: 5,
-                });
-            } catch (err) {
-                showStatus('Metin oluşturulamadı: ' + err.message, true);
-                return;
-            }
-
-            textGeom.computeBoundingBox();
-            const bb = textGeom.boundingBox;
-            const cx = (bb.max.x + bb.min.x) / 2;
-            const cy = (bb.max.y + bb.min.y) / 2;
-            const cz = (bb.max.z + bb.min.z) / 2;
-            textGeom.translate(-cx, -cy, -cz);
-            textGeom.computeBoundingBox();
-            textGeom.computeVertexNormals();
-
-            const fillMat = new THREE.MeshStandardMaterial({ color: p.anaRenk, roughness: 0.45, metalness: 0.05 });
-            const mainMesh = new THREE.Mesh(textGeom, fillMat);
-            modelGroup.add(mainMesh);
-
-            if (p.konturKalinlik > 0) {
-                const scaleFactor = 1 + (p.konturKalinlik / 100) * 0.12;
-                const outlineMat = new THREE.MeshStandardMaterial({
-                    color: p.konturRenk, roughness: 0.55, metalness: 0.05, side: THREE.BackSide
-                });
-                const outlineMesh = new THREE.Mesh(textGeom, outlineMat);
-                outlineMesh.scale.set(scaleFactor, scaleFactor, 1);
-                modelGroup.add(outlineMesh);
-            }
-
-            if (p.halkaAktif) {
-                const bbox2 = textGeom.boundingBox;
-                const ringOuter = p.halkaCap;
-                const ringTube = Math.max(1.4, p.derinlik * 0.28);
-                const ringGeom = new THREE.TorusGeometry(ringOuter / 2 - ringTube / 2, ringTube / 2, 12, 24);
-                const ringMesh = new THREE.Mesh(ringGeom, fillMat);
-                const ringX = p.halkaKonum === 'orta' ? 0 : bbox2.min.x + (bbox2.max.x - bbox2.min.x) * 0.12;
-                const ringY = bbox2.max.y + ringOuter / 2 - ringTube * 0.9;
-                ringMesh.position.set(ringX, ringY, 0);
-                modelGroup.add(ringMesh);
-            }
-
-            const dims = textGeom.boundingBox;
-            document.getElementById('dims-badge').innerText =
-                `${(dims.max.x - dims.min.x).toFixed(0)} × ${(dims.max.y - dims.min.y).toFixed(0)} × ${p.derinlik} mm`;
-
-            fitCameraToGroup();
-        }
-
-        window.exportSTL = function () {
-            if (!modelGroup || !THREE) return;
-            let stlString = "solid IsimliAnahtarlik\n";
-            modelGroup.traverse((child) => {
-                // Skip the outline shell — it's a visual duplicate (backside, scaled),
-                // not a separate printable solid.
-                if (child.isMesh && child.geometry && child.material && child.material.side !== THREE.BackSide) {
-                    const geometry = child.geometry.clone();
-                    geometry.applyMatrix4(child.matrixWorld);
-                    const positionAttr = geometry.attributes.position;
-                    const indexAttr = geometry.index;
-
-                    const getVertex = (index) => new THREE.Vector3(
-                        positionAttr.getX(index), positionAttr.getY(index), positionAttr.getZ(index)
-                    );
-                    const writeTriangle = (a, b, c) => {
-                        const cb = new THREE.Vector3().subVectors(c, b);
-                        const ab = new THREE.Vector3().subVectors(a, b);
-                        cb.cross(ab).normalize();
-                        stlString += `  facet normal ${cb.x} ${cb.y} ${cb.z}\n`;
-                        stlString += `    outer loop\n`;
-                        stlString += `      vertex ${a.x} ${a.y} ${a.z}\n`;
-                        stlString += `      vertex ${b.x} ${b.y} ${b.z}\n`;
-                        stlString += `      vertex ${c.x} ${c.y} ${c.z}\n`;
-                        stlString += `    endloop\n`;
-                        stlString += `  endfacet\n`;
-                    };
-                    if (indexAttr) {
-                        for (let i = 0; i < indexAttr.count; i += 3) {
-                            writeTriangle(
-                                getVertex(indexAttr.getX(i)),
-                                getVertex(indexAttr.getX(i + 1)),
-                                getVertex(indexAttr.getX(i + 2))
-                            );
-                        }
-                    } else {
-                        for (let i = 0; i < positionAttr.count; i += 3) {
-                            writeTriangle(getVertex(i), getVertex(i + 1), getVertex(i + 2));
-                        }
-                    }
-                }
-            });
-            stlString += "endsolid IsimliAnahtarlik\n";
-
-            const blob = new Blob([stlString], { type: 'text/plain' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            const nameSafe = (document.getElementById('metin').value || 'anahtarlik').trim().replace(/[^a-zA-Z0-9ğüşöçıİĞÜŞÖÇ_-]+/g, '_');
-            link.download = `${nameSafe || 'anahtarlik'}.stl`;
-            link.click();
-            URL.revokeObjectURL(link.href);
-        };
-
-        boot();
     </script>
 </body>
 </html>
