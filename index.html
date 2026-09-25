@@ -128,8 +128,8 @@
         let currentText = "DD_VECTOR";
         let ringPosition = "start";
         
-        let baseMaterial = new THREE.MeshStandardMaterial({ color: "#7c3aed", roughness: 0.25, metalness: 0.1 });
-        let textMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.25, metalness: 0.1 });
+        let baseMaterial = new THREE.MeshStandardMaterial({ color: "#7c3aed", roughness: 0.2, metalness: 0.1 });
+        let textMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.2, metalness: 0.1 });
 
         init3D();
         loadFont();
@@ -152,7 +152,7 @@
             controls.dampingFactor = 0.05;
 
             // Işıklandırma
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
             scene.add(ambientLight);
 
             const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -172,7 +172,6 @@
 
         function loadFont() {
             const loader = new THREE.FontLoader();
-            // Google Font tabanlı kalın ve akışkan hatlı typeface
             loader.load('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/helvetiker_bold.typeface.json', function (loadedFont) {
                 font = loadedFont;
                 document.getElementById('loading').style.display = 'none';
@@ -192,16 +191,16 @@
 
             const text = currentText.trim() === "" ? "DD_VECTOR" : currentText.toUpperCase();
             
-            // 1. Gerçek 3D Metin Geometrisi
+            // 1. 3D Metin Geometrisi (Yumuşak baloncuk/bombeli bevel efekti ile)
             const textGeo = new THREE.TextGeometry(text, {
                 font: font,
                 size: 9.5,
-                height: 2.2,
+                height: 2.0,
                 curveSegments: 12,
                 bevelEnabled: true,
-                bevelThickness: 0.4,
-                bevelSize: 0.3,
-                bevelSegments: 3
+                bevelThickness: 0.6,
+                bevelSize: 0.5,
+                bevelSegments: 4
             });
             textGeo.computeBoundingBox();
             
@@ -210,36 +209,36 @@
             const textWidth = textMaxX - textMinX;
             const textHeight = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
 
-            // Metni tam merkeze konumlandır
-            textGeo.translate(-(textMinX + textWidth / 2), -(textGeo.boundingBox.min.y + textHeight / 2), 1.2);
+            // Metni merkeze konumlandır
+            textGeo.translate(-(textMinX + textWidth / 2), -(textGeo.boundingBox.min.y + textHeight / 2), 1.3);
             const textMesh = new THREE.Mesh(textGeo, textMaterial);
             keychainGroup.add(textMesh);
 
-            // 2. Görseldeki Gibi Harfleri Takip Eden Organik/Dalgalı Zemin Plakası
-            const paddingX = 14;
-            const paddingY = 10;
+            // 2. Organik / Dalgalı Zemin Plakası
+            const paddingX = 16;
+            const paddingY = 11;
             const baseWidth = textWidth + paddingX * 2;
-            const baseHeight = Math.max(textHeight + paddingY * 2, 26);
+            const baseHeight = Math.max(textHeight + paddingY * 2, 28);
             const baseDepth = 2.4;
 
             const baseShape = createBlobShape(-baseWidth/2, -baseHeight/2, baseWidth, baseHeight);
-            const baseExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.5, bevelThickness: 0.5 };
+            const baseExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.6, bevelThickness: 0.6 };
             const baseGeometry = new THREE.ExtrudeGeometry(baseShape, baseExtrudeSettings);
             baseGeometry.center();
             const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
             keychainGroup.add(baseMesh);
 
-            // 3. Bağlantı Halkası (Kulakçık - Başında veya Sonunda)
-            const ringOffset = baseWidth / 2 + 5.5;
+            // 3. Dışa Bağlı Kulakçık Halkası (Plakaya tam dıştan pürüzsüz geçiş)
+            const ringOffset = (baseWidth / 2) + 7;
             const ringX = ringPosition === 'start' ? -ringOffset : ringOffset;
             
             const ringShape = new THREE.Shape();
-            ringShape.absarc(0, 0, 5.8, 0, Math.PI * 2, false);
+            ringShape.absarc(0, 0, 6.2, 0, Math.PI * 2, false);
             const holePath = new THREE.Path();
-            holePath.absarc(0, 0, 2.6, 0, Math.PI * 2, true);
+            holePath.absarc(0, 0, 2.8, 0, Math.PI * 2, true);
             ringShape.holes.push(holePath);
 
-            const ringExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.3, bevelThickness: 0.3 };
+            const ringExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.4, bevelThickness: 0.4 };
             const ringGeometry = new THREE.ExtrudeGeometry(ringShape, ringExtrudeSettings);
             const ringMesh = new THREE.Mesh(ringGeometry, baseMaterial);
             ringMesh.position.set(ringX, 0, 0);
@@ -248,7 +247,7 @@
             keychainGroup.position.set(0, 0, 0);
         }
 
-        // Görseldeki yumuşak kavisli kapsül/organik zemin formu
+        // Organik kapsül/baloncuk zemin formu
         function createBlobShape(x, y, width, height) {
             const shape = new THREE.Shape();
             const r = height / 2;
