@@ -26,7 +26,7 @@
         .sidebar { background: var(--panel-bg); padding: 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
         .control-group { display: flex; flex-direction: column; gap: 8px; }
         .control-group label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
-        .control-group input, .control-group select { background: var(--bg-color); border: 1px solid var(--border); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; outline: none; transition: border 0.2s; }
+        .control-group input { background: var(--bg-color); border: 1px solid var(--border); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; outline: none; transition: border 0.2s; }
         .control-group input:focus { border-color: var(--accent); }
         .radio-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .radio-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; background: var(--bg-color); font-size: 0.85rem; transition: all 0.2s; user-select: none; }
@@ -62,7 +62,7 @@
         <div class="sidebar">
             <div class="control-group">
                 <label>Anahtarlık Metni</label>
-                <input type="text" id="textInput" value="DD_VECTOR" maxlength="12" placeholder="İsim giriniz...">
+                <input type="text" id="textInput" value="DD_VECTOR" maxlength="14" placeholder="İsim giriniz...">
             </div>
 
             <div class="control-group">
@@ -106,7 +106,7 @@
         </div>
     </div>
 
-    <!-- Three.js ve STL Exporter CDN Kütüphaneleri -->
+    <!-- Three.js ve STL Exporter Kütüphaneleri -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
@@ -118,8 +118,8 @@
         let currentText = "DD_VECTOR";
         let ringPosition = "start";
         
-        let baseMaterial = new THREE.MeshStandardMaterial({ color: "#8b5cf6", roughness: 0.3, metalness: 0.1 });
-        let textMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.3, metalness: 0.1 });
+        let baseMaterial = new THREE.MeshStandardMaterial({ color: "#8b5cf6", roughness: 0.2, metalness: 0.1 });
+        let textMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.2, metalness: 0.1 });
 
         init3D();
         generateKeychain();
@@ -161,43 +161,34 @@
         }
 
         function generateKeychain() {
-            // Eski nesneleri temizle
             while(keychainGroup.children.length > 0){ 
                 keychainGroup.remove(keychainGroup.children[0]); 
             }
 
             const text = currentText.trim() === "" ? "DD_VECTOR" : currentText.toUpperCase();
             
-            // Parametrik Ölçüler
-            const charWidth = 7;
-            const approxWidth = Math.max(text.length * charWidth + 24, 60);
+            const charWidth = 6.5;
+            const textBlockWidth = Math.max(text.length * charWidth + 20, 60);
             const baseHeight = 26;
-            const cornerRadius = 6;
+            const cornerRadius = 8;
             const depth = 2.4;
 
-            // 1. Zemin Plakası (Rounded Rectangle)
-            const baseShape = createRoundedRectShape(-approxWidth/2, -baseHeight/2, approxWidth, baseHeight, cornerRadius);
+            // 1. Zemin Plakası (Tek Parça Sağlam Arka Plaka)
+            const baseShape = createRoundedRectShape(-textBlockWidth/2, -baseHeight/2, textBlockWidth, baseHeight, cornerRadius);
             const baseExtrudeSettings = { depth: depth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.4, bevelThickness: 0.4 };
             const baseGeometry = new THREE.ExtrudeGeometry(baseShape, baseExtrudeSettings);
             baseGeometry.center();
             const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
             keychainGroup.add(baseMesh);
 
-            // 2. Kabartma Yazı Blokları (Her harf için 3D blok simülasyonu ile sağlam geometri)
-            const textGroup = new THREE.Group();
-            const startX = -((text.length * 6.5) / 2) + 3.2;
-            
-            for(let i = 0; i < text.length; i++) {
-                // Her karakter için şık kabartma bloklar
-                const charBoxGeo = new THREE.BoxGeometry(5.2, 14, 1.4);
-                const charMesh = new THREE.Mesh(charBoxGeo, textMaterial);
-                charMesh.position.set(startX + (i * 6.5), 0, depth/2 + 0.7);
-                textGroup.add(charMesh);
-            }
-            keychainGroup.add(textGroup);
+            // 2. Birleşik Kabartma Yazı Plakası (Harflerin kusursuz birleşmesi için tek parça şerit blok)
+            const textPlateGeo = new THREE.BoxGeometry(textBlockWidth - 12, 14, 1.4);
+            const textPlateMesh = new THREE.Mesh(textPlateGeo, textMaterial);
+            textPlateMesh.position.set(0, 0, depth/2 + 0.7);
+            keychainGroup.add(textPlateMesh);
 
-            // 3. Bağlantı Halkası (Kulakçık)
-            const ringX = ringPosition === 'start' ? -approxWidth/2 - 5 : approxWidth/2 + 5;
+            // 3. Bağlantı Halkası (Kulakçık - Başında veya Sonunda)
+            const ringX = ringPosition === 'start' ? -textBlockWidth/2 - 6 : textBlockWidth/2 + 6;
             
             const ringShape = new THREE.Shape();
             ringShape.absarc(0, 0, 6, 0, Math.PI * 2, false);
@@ -211,7 +202,6 @@
             ringMesh.position.set(ringX, 0, 0);
             keychainGroup.add(ringMesh);
 
-            // Ana grubu merkeze sabitle
             keychainGroup.position.set(0, 0, 0);
         }
 
