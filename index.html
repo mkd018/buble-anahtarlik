@@ -191,7 +191,7 @@
 
             const text = currentText.trim() === "" ? "DD_VECTOR" : currentText.toUpperCase();
             
-            // 1. 3D Metin Geometrisi (Yumuşak baloncuk/bombeli bevel efekti ile)
+            // 1. 3D Metin Geometrisi
             const textGeo = new THREE.TextGeometry(text, {
                 font: font,
                 size: 9.5,
@@ -209,12 +209,11 @@
             const textWidth = textMaxX - textMinX;
             const textHeight = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
 
-            // Metni merkeze konumlandır
             textGeo.translate(-(textMinX + textWidth / 2), -(textGeo.boundingBox.min.y + textHeight / 2), 1.3);
             const textMesh = new THREE.Mesh(textGeo, textMaterial);
             keychainGroup.add(textMesh);
 
-            // 2. Organik / Dalgalı Zemin Plakası
+            // 2. Organik Zemin Plakası
             const paddingX = 16;
             const paddingY = 11;
             const baseWidth = textWidth + paddingX * 2;
@@ -228,26 +227,26 @@
             const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
             keychainGroup.add(baseMesh);
 
-            // 3. Dışa Bağlı Kulakçık Halkası (Plakaya tam dıştan pürüzsüz geçiş)
+            // 3. Delikli Halka (Kulakçık - Başında veya Sonunda delik açılmış olarak)
             const ringOffset = (baseWidth / 2) + 7;
             const ringX = ringPosition === 'start' ? -ringOffset : ringOffset;
             
             const ringShape = new THREE.Shape();
-            ringShape.absarc(0, 0, 6.2, 0, Math.PI * 2, false);
+            ringShape.absarc(ringX, 0, 6.2, 0, Math.PI * 2, false);
+            
+            // Halkanın ortasındaki deliği kesin olarak oluşturan hole tanımı
             const holePath = new THREE.Path();
-            holePath.absarc(0, 0, 2.8, 0, Math.PI * 2, true);
+            holePath.absarc(ringX, 0, 2.8, 0, Math.PI * 2, true);
             ringShape.holes.push(holePath);
 
             const ringExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.4, bevelThickness: 0.4 };
             const ringGeometry = new THREE.ExtrudeGeometry(ringShape, ringExtrudeSettings);
             const ringMesh = new THREE.Mesh(ringGeometry, baseMaterial);
-            ringMesh.position.set(ringX, 0, 0);
             keychainGroup.add(ringMesh);
 
             keychainGroup.position.set(0, 0, 0);
         }
 
-        // Organik kapsül/baloncuk zemin formu
         function createBlobShape(x, y, width, height) {
             const shape = new THREE.Shape();
             const r = height / 2;
