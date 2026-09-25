@@ -42,6 +42,9 @@
         .btn-secondary:hover { background: rgba(139, 92, 246, 0.1); color: #fff; }
         .viewer-container { position: relative; width: 100%; height: 100%; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
         #canvas3d { width: 100%; height: 100%; display: block; }
+        .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; z-index: 10; color: var(--text-muted); font-size: 0.9rem; }
+        .spinner { width: 35px; height: 35px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .info-badge { position: absolute; bottom: 20px; left: 20px; background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(5px); border: 1px solid var(--border); padding: 10px 15px; border-radius: 8px; font-size: 0.8rem; color: var(--text-muted); pointer-events: none; }
     </style>
 </head>
@@ -62,7 +65,7 @@
         <div class="sidebar">
             <div class="control-group">
                 <label>Anahtarlık Metni</label>
-                <input type="text" id="textInput" value="DD_VECTOR" maxlength="14" placeholder="İsim giriniz...">
+                <input type="text" id="textInput" value="DD_VECTOR" maxlength="12" placeholder="İsim giriniz...">
             </div>
 
             <div class="control-group">
@@ -101,28 +104,35 @@
 
         <!-- SAĞ 3D GÖRSELLEŞTİRME ALANI -->
         <div class="viewer-container">
+            <div id="loading" class="loading-overlay">
+                <div class="spinner"></div>
+                <span>3D Font Yükleniyor...</span>
+            </div>
             <div id="canvas3d"></div>
             <div class="info-badge">💡 Sol tık ile döndürün, sağ tık ile kaydırın, tekerlek ile yakınlaşın.</div>
         </div>
     </div>
 
-    <!-- Three.js ve STL Exporter Kütüphaneleri -->
+    <!-- Three.js, FontLoader, TextGeometry ve STL Exporter Kütüphaneleri -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
     
     <script>
         let scene, camera, renderer, controls;
+        let font = null;
         let keychainGroup = new THREE.Group();
         
         let currentText = "DD_VECTOR";
         let ringPosition = "start";
         
-        let baseMaterial = new THREE.MeshStandardMaterial({ color: "#8b5cf6", roughness: 0.2, metalness: 0.1 });
-        let textMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.2, metalness: 0.1 });
+        let baseMaterial = new THREE.MeshStandardMaterial({ color: "#8b5cf6", roughness: 0.3, metalness: 0.1 });
+        let textMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.3, metalness: 0.1 });
 
         init3D();
-        generateKeychain();
+        loadFont();
 
         function init3D() {
             const container = document.getElementById('canvas3d');
@@ -160,43 +170,74 @@
             animate();
         }
 
+        function loadFont() {
+            const loader = new THREE.FontLoader();
+            // Standart kararlı Three.js JSON font CDN
+            loader.load('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/helvetiker_bold.typeface.json', function (loadedFont) {
+                font = loadedFont;
+                document.getElementById('loading').style.display = 'none';
+                generateKeychain();
+            }, undefined, function (error) {
+                console.error('Font yükleme hatası:', error);
+                document.getElementById('loading').innerHTML = '<span>Font yüklenemedi. Lütfen sayfayı yenileyin.</span>';
+            });
+        }
+
         function generateKeychain() {
+            if (!font) return;
+
             while(keychainGroup.children.length > 0){ 
                 keychainGroup.remove(keychainGroup.children[0]); 
             }
 
-            const text = currentText.trim() === "" ? "DD_VECTOR" : currentText.toUpperCase();
+            const text = currentText.trim() === "" ? "DD_VECTOR" : currentText;
             
-            const charWidth = 6.5;
-            const textBlockWidth = Math.max(text.length * charWidth + 20, 60);
-            const baseHeight = 26;
-            const cornerRadius = 8;
-            const depth = 2.4;
+            // 1. Text Geometrisi Oluşturma
+            const textGeo = new THREE.TextGeometry(text, {
+                font: font,
+                size: 9,
+                height: 1.8,
+                curveSegments: 6,
+                bevelEnabled: false
+            });
+            textGeo.computeBoundingBox();
+            
+            const textMinX = textGeo.boundingBox.min.x;
+            const textMaxX = textGeo.boundingBox.max.x;
+            const textWidth = textMaxX - textMinX;
+            const textHeight = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
 
-            // 1. Zemin Plakası (Tek Parça Sağlam Arka Plaka)
-            const baseShape = createRoundedRectShape(-textBlockWidth/2, -baseHeight/2, textBlockWidth, baseHeight, cornerRadius);
-            const baseExtrudeSettings = { depth: depth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.4, bevelThickness: 0.4 };
+            // Yazıyı merkezle
+            textGeo.translate(-(textMinX + textWidth / 2), -(textGeo.boundingBox.min.y + textHeight / 2), 1.2);
+            const textMesh = new THREE.Mesh(textGeo, textMaterial);
+            keychainGroup.add(textMesh);
+
+            // 2. Zemin Plakası (Arka Plaka)
+            const paddingX = 14;
+            const paddingY = 10;
+            const baseWidth = textWidth + paddingX * 2;
+            const baseHeight = Math.max(textHeight + paddingY * 2, 24);
+            const cornerRadius = 6;
+            const baseDepth = 2.4;
+
+            const baseShape = createRoundedRectShape(-baseWidth/2, -baseHeight/2, baseWidth, baseHeight, cornerRadius);
+            const baseExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.4, bevelThickness: 0.4 };
             const baseGeometry = new THREE.ExtrudeGeometry(baseShape, baseExtrudeSettings);
             baseGeometry.center();
             const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
             keychainGroup.add(baseMesh);
 
-            // 2. Birleşik Kabartma Yazı Plakası (Harflerin kusursuz birleşmesi için tek parça şerit blok)
-            const textPlateGeo = new THREE.BoxGeometry(textBlockWidth - 12, 14, 1.4);
-            const textPlateMesh = new THREE.Mesh(textPlateGeo, textMaterial);
-            textPlateMesh.position.set(0, 0, depth/2 + 0.7);
-            keychainGroup.add(textPlateMesh);
-
             // 3. Bağlantı Halkası (Kulakçık - Başında veya Sonunda)
-            const ringX = ringPosition === 'start' ? -textBlockWidth/2 - 6 : textBlockWidth/2 + 6;
+            const ringOffset = baseWidth / 2 + 5;
+            const ringX = ringPosition === 'start' ? -ringOffset : ringOffset;
             
             const ringShape = new THREE.Shape();
-            ringShape.absarc(0, 0, 6, 0, Math.PI * 2, false);
+            ringShape.absarc(0, 0, 5.5, 0, Math.PI * 2, false);
             const holePath = new THREE.Path();
-            holePath.absarc(0, 0, 2.8, 0, Math.PI * 2, true);
+            holePath.absarc(0, 0, 2.5, 0, Math.PI * 2, true);
             ringShape.holes.push(holePath);
 
-            const ringExtrudeSettings = { depth: depth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.3, bevelThickness: 0.3 };
+            const ringExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.3, bevelThickness: 0.3 };
             const ringGeometry = new THREE.ExtrudeGeometry(ringShape, ringExtrudeSettings);
             const ringMesh = new THREE.Mesh(ringGeometry, baseMaterial);
             ringMesh.position.set(ringX, 0, 0);
