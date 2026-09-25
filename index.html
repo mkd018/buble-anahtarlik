@@ -42,6 +42,9 @@
         .btn-secondary:hover { background: rgba(139, 92, 246, 0.1); color: #fff; }
         .viewer-container { position: relative; width: 100%; height: 100%; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
         #canvas3d { width: 100%; height: 100%; display: block; }
+        .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 10; color: var(--text-muted); font-size: 0.9rem; }
+        .spinner { width: 35px; height: 35px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .info-badge { position: absolute; bottom: 20px; left: 20px; background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(5px); border: 1px solid var(--border); padding: 10px 15px; border-radius: 8px; font-size: 0.8rem; color: var(--text-muted); pointer-events: none; }
     </style>
 </head>
@@ -62,17 +65,17 @@
         <div class="sidebar">
             <div class="control-group">
                 <label>Anahtarlık Metni</label>
-                <input type="text" id="textInput" value="MERVE" maxlength="12" placeholder="İsim giriniz...">
+                <input type="text" id="textInput" value="DD_VECTOR" maxlength="12" placeholder="İsim giriniz...">
             </div>
 
             <div class="control-group">
                 <label>Halka Konumu</label>
                 <div class="radio-group">
-                    <label class="radio-card" id="labelStart">
-                        <input type="radio" name="ringPos" value="start"> Başında
+                    <label class="radio-card active" id="labelStart">
+                        <input type="radio" name="ringPos" value="start" checked> Başında
                     </label>
-                    <label class="radio-card active" id="labelEnd">
-                        <input type="radio" name="ringPos" value="end" checked> Sonunda
+                    <label class="radio-card" id="labelEnd">
+                        <input type="radio" name="ringPos" value="end"> Sonunda
                     </label>
                 </div>
             </div>
@@ -101,28 +104,35 @@
 
         <!-- SAĞ 3D GÖRSELLEŞTİRME ALANI -->
         <div class="viewer-container">
+            <div id="loading" class="loading-overlay">
+                <div class="spinner"></div>
+                <span>3D Font ve Geometri Yükleniyor...</span>
+            </div>
             <div id="canvas3d"></div>
             <div class="info-badge">💡 Sol tık ile döndürün, sağ tık ile kaydırın, tekerlek ile yakınlaşın.</div>
         </div>
     </div>
 
-    <!-- Three.js Kütüphaneleri -->
+    <!-- Three.js ve Font Kütüphaneleri -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
     
     <script>
         let scene, camera, renderer, controls;
+        let font = null;
         let keychainGroup = new THREE.Group();
         
-        let currentText = "MERVE";
-        let ringPosition = "end";
+        let currentText = "DD_VECTOR";
+        let ringPosition = "start";
         
         let baseMaterial = new THREE.MeshStandardMaterial({ color: "#7c3aed", roughness: 0.25, metalness: 0.1 });
         let textMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.25, metalness: 0.1 });
 
         init3D();
-        generateKeychain();
+        loadFont();
 
         function init3D() {
             const container = document.getElementById('canvas3d');
@@ -160,56 +170,76 @@
             animate();
         }
 
+        function loadFont() {
+            const loader = new THREE.FontLoader();
+            // Google Font tabanlı kalın ve akışkan hatlı typeface
+            loader.load('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/helvetiker_bold.typeface.json', function (loadedFont) {
+                font = loadedFont;
+                document.getElementById('loading').style.display = 'none';
+                generateKeychain();
+            }, undefined, function (error) {
+                console.error('Font yükleme hatası:', error);
+                document.getElementById('loading').innerHTML = '<span>Font yüklenemedi. Lütfen sayfayı yenileyin.</span>';
+            });
+        }
+
         function generateKeychain() {
+            if (!font) return;
+
             while(keychainGroup.children.length > 0){ 
                 keychainGroup.remove(keychainGroup.children[0]); 
             }
 
-            const text = currentText.trim() === "" ? "MERVE" : currentText;
+            const text = currentText.trim() === "" ? "DD_VECTOR" : currentText.toUpperCase();
             
-            // Görseldeki gibi organik, yumuşak dalgalı plaka boyutu
-            const charWidth = 7.5;
-            const textLen = text.length;
-            const totalLen = Math.max(textLen * charWidth, 45);
-            const baseHeight = 24;
-            const depth = 2.4;
+            // 1. Gerçek 3D Metin Geometrisi
+            const textGeo = new THREE.TextGeometry(text, {
+                font: font,
+                size: 9.5,
+                height: 2.2,
+                curveSegments: 12,
+                bevelEnabled: true,
+                bevelThickness: 0.4,
+                bevelSize: 0.3,
+                bevelSegments: 3
+            });
+            textGeo.computeBoundingBox();
+            
+            const textMinX = textGeo.boundingBox.min.x;
+            const textMaxX = textGeo.boundingBox.max.x;
+            const textWidth = textMaxX - textMinX;
+            const textHeight = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
 
-            // 1. Organik / Dalgalı Konturlu Arka Plaka (Capsule / Smooth Blob)
-            const baseShape = createBlobShape(-totalLen/2, -baseHeight/2, totalLen, baseHeight);
-            const baseExtrudeSettings = { depth: depth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.5, bevelThickness: 0.5 };
+            // Metni tam merkeze konumlandır
+            textGeo.translate(-(textMinX + textWidth / 2), -(textGeo.boundingBox.min.y + textHeight / 2), 1.2);
+            const textMesh = new THREE.Mesh(textGeo, textMaterial);
+            keychainGroup.add(textMesh);
+
+            // 2. Görseldeki Gibi Harfleri Takip Eden Organik/Dalgalı Zemin Plakası
+            const paddingX = 14;
+            const paddingY = 10;
+            const baseWidth = textWidth + paddingX * 2;
+            const baseHeight = Math.max(textHeight + paddingY * 2, 26);
+            const baseDepth = 2.4;
+
+            const baseShape = createBlobShape(-baseWidth/2, -baseHeight/2, baseWidth, baseHeight);
+            const baseExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.5, bevelThickness: 0.5 };
             const baseGeometry = new THREE.ExtrudeGeometry(baseShape, baseExtrudeSettings);
             baseGeometry.center();
             const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
             keychainGroup.add(baseMesh);
 
-            // 2. Akışkan Yumuşak Hatlı Üst Yazı Katmanı (Görseldeki gibi kalın, bombeli ve akışkan harf formları)
-            const textGroup = new THREE.Group();
-            const startX = -((textLen * charWidth) / 2) + (charWidth / 2);
-
-            for(let i = 0; i < textLen; i++) {
-                // Her harfi temsil eden pürüzsüz, yumuşak köşeli kabartma silindir/kapsül bloklar (El yazısı hissi için)
-                const letterGeo = new THREE.CylinderGeometry(3.2, 3.2, 12, 16);
-                letterGeo.rotateX(Math.PI / 2);
-                const letterMesh = new THREE.Mesh(letterGeo, textMaterial);
-                letterMesh.position.set(startX + (i * charWidth), 0, depth/2 + 0.8);
-                textGroup.add(letterMesh);
-            }
-            
-            // Görseldeki akışkan el yazısı dalgası efekti için hafif eğim ve entegrasyon
-            textGroup.position.set(0, 0, 0);
-            keychainGroup.add(textGroup);
-
-            // 3. Bağlantı Halkası (Kulakçık - Yazının Başında veya Sonunda)
-            const ringOffset = (totalLen / 2) + 6;
+            // 3. Bağlantı Halkası (Kulakçık - Başında veya Sonunda)
+            const ringOffset = baseWidth / 2 + 5.5;
             const ringX = ringPosition === 'start' ? -ringOffset : ringOffset;
             
             const ringShape = new THREE.Shape();
-            ringShape.absarc(0, 0, 5.5, 0, Math.PI * 2, false);
+            ringShape.absarc(0, 0, 5.8, 0, Math.PI * 2, false);
             const holePath = new THREE.Path();
-            holePath.absarc(0, 0, 2.5, 0, Math.PI * 2, true);
+            holePath.absarc(0, 0, 2.6, 0, Math.PI * 2, true);
             ringShape.holes.push(holePath);
 
-            const ringExtrudeSettings = { depth: depth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.3, bevelThickness: 0.3 };
+            const ringExtrudeSettings = { depth: baseDepth, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.3, bevelThickness: 0.3 };
             const ringGeometry = new THREE.ExtrudeGeometry(ringShape, ringExtrudeSettings);
             const ringMesh = new THREE.Mesh(ringGeometry, baseMaterial);
             ringMesh.position.set(ringX, 0, 0);
@@ -218,13 +248,11 @@
             keychainGroup.position.set(0, 0, 0);
         }
 
-        // Görseldeki organik / dalgalı hatları veren özel şekil fonksiyonu
+        // Görseldeki yumuşak kavisli kapsül/organik zemin formu
         function createBlobShape(x, y, width, height) {
             const shape = new THREE.Shape();
             const r = height / 2;
-            // Sol kavisli uç
             shape.absarc(x, y + r, r, Math.PI / 2, (3 * Math.PI) / 2, false);
-            // Sağ kavisli uç
             shape.absarc(x + width, y + r, r, (3 * Math.PI) / 2, Math.PI / 2, false);
             return shape;
         }
